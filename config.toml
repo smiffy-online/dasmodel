@@ -1,0 +1,45 @@
+# DasModel configuration
+
+[ollama]
+url = "http://localhost:11434"
+model = "qwen3:8b"
+# api_key = ""   # Required for Ollama Cloud direct API (https://ollama.com)
+
+[server]
+host = "0.0.0.0"
+port = 5003
+debug = false
+
+[database]
+path = "dasmodel.db"
+
+[agent]
+max_tool_iterations = 10
+default_user = "user"
+
+# Static asset paths (relative to static/ directory)
+# Download Bootstrap and place in static/vendor/bootstrap/
+[static]
+bootstrap_css = "/static/vendor/bootstrap/css/bootstrap.min.css"
+bootstrap_js = "/static/vendor/bootstrap/js/bootstrap.bundle.min.js"
+
+# Built-in shell tool. Disabled by default — enable explicitly.
+[shell]
+enabled = false
+working_directory = "."
+timeout = 30
+max_output_chars = 50000
+# Restrict shell to specific directories (empty = no restriction)
+# allowed_directories = ["/home/user/projects", "/tmp"]
+
+# MCP servers for tool access. Add as many as needed.
+# Each server is queried for available tools at conversation start.
+# Remove or comment out all [[mcp]] entries to run without tools.
+
+[[mcp]]
+name = "misti"
+url = "http://localhost:5001"
+
+# [[mcp]]
+# name = "filesystem"
+# url = "http://localhost:5002"

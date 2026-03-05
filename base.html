@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}DasModel{% endblock %}</title>
+  <link rel="stylesheet" href="{{ bootstrap_css }}">
+  <style>
+    body { min-height: 100vh; }
+    nav.dm-nav { margin-bottom: 1.5rem; }
+    nav.dm-nav a { margin-right: 1rem; text-decoration: none; }
+    .dm-container { max-width: 1000px; margin: 0 auto; padding: 1rem; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="dm-container">
+    <nav class="dm-nav">
+      <a href="/" {% if request.path == '/' %}class="fw-bold"{% endif %}>Chat</a>
+      <a href="/conversations" {% if request.path == '/conversations' %}class="fw-bold"{% endif %}>Conversations</a>
+      <a href="/rules" {% if request.path == '/rules' %}class="fw-bold"{% endif %}>Rules</a>
+      <a href="/prompts" {% if request.path == '/prompts' %}class="fw-bold"{% endif %}>Prompts</a>
+    </nav>
+
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="{{ bootstrap_js }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
