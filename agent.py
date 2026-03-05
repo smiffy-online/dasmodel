@@ -239,6 +239,11 @@ def run_agent_loop(
             tool_calls = message.get("tool_calls", [])
 
             if tool_calls:
+                messages.append({
+                    "role": "assistant",
+                    "content": message.get("content", ""),
+                    "tool_calls": tool_calls,
+                })
                 for tool_call in tool_calls:
                     func = tool_call.get("function", {})
                     tool_name = func.get("name", "unknown")
@@ -248,11 +253,6 @@ def run_agent_loop(
                     result = call_tool(tool_name, arguments)
                     yield {"type": "tool_result", "name": tool_name, "result": result}
 
-                    messages.append({
-                        "role": "assistant",
-                        "content": message.get("content", ""),
-                        "tool_calls": tool_calls,
-                    })
                     messages.append({"role": "tool", "content": result})
 
                 continue

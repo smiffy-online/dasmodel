@@ -8,7 +8,7 @@ Currently provides shell execution. Add further built-in tools here.
 import subprocess
 import json
 import os
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 import config
 
@@ -131,7 +131,7 @@ def get_builtin_tools() -> List[Dict]:
     return BUILTIN_DEFINITIONS
 
 
-def call_builtin(tool_name: str, arguments: Dict) -> str:
+def call_builtin(tool_name: str, arguments: Dict) -> Optional[str]:
     """Execute a built-in tool. Returns None if tool not found."""
     if not BUILTIN_TOOLS:
         _register()

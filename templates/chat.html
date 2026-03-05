@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% block title %}Chat - DasModel{% endblock %}
+
+{% block head %}
+<style>
+  #chat-messages {
+    min-height: 60vh;
+    max-height: 75vh;
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .msg { margin-bottom: 0.75rem; }
+  .msg-user .msg-content {
+    background: var(--bs-primary);
+    color: #fff;
+    display: inline-block;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem 0.75rem 0 0.75rem;
+    max-width: 80%;
+    white-space: pre-wrap;
+  }
+  .msg-user { text-align: right; }
+  .msg-assistant .msg-content {
+    background: var(--bs-secondary-bg);
+    display: inline-block;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem 0.75rem 0.75rem 0;
+    max-width: 80%;
+    white-space: pre-wrap;
+  }
+  .msg-tool {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+  }
+  .tool-card {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.25rem;
+    background: var(--bs-tertiary-bg);
+  }
+  .tool-card summary { cursor: pointer; font-family: monospace; }
+  .tool-card pre {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.8rem;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  #input-area { position: relative; }
+  #message-input {
+    resize: none;
+    min-height: 3rem;
+    max-height: 10rem;
+    overflow-y: auto;
+  }
+  .msg-actions { margin-top: 0.25rem; }
+  .msg-actions button { font-size: 0.75rem; padding: 0.1rem 0.4rem; }
+  .status-bar {
+    font-size: 0.85rem;
+    color: var(--bs-secondary-color);
+    min-height: 1.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0">
+    Chat
+    <small class="text-body-secondary" id="conv-label"></small>
+  </h5>
+  <button class="btn btn-sm btn-outline-secondary" id="btn-new" title="New conversation">New</button>
+</div>
+
+<div id="chat-messages"></div>
+
+<div class="status-bar mb-2" id="status"></div>
+
+<form id="chat-form" autocomplete="off">
+  <div class="input-group">
+    <textarea class="form-control" id="message-input" rows="1"
+              placeholder="Type a message..." aria-label="Message"></textarea>
+    <button class="btn btn-primary" type="submit" id="btn-send">Send</button>
+  </div>
+</form>
+
+<!-- Correction modal -->
+<div class="modal fade" id="correctModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Correct response</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="correct-turn-id">
+        <div class="mb-3">
+          <label for="correct-text" class="form-label">Better response</label>
+          <textarea class="form-control" id="correct-text" rows="4"></textarea>
+        </div>
+        <div class="mb-3">
+          <label for="correct-reason" class="form-label">Reason (optional)</label>
+          <input type="text" class="form-control" id="correct-reason">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-submit-correction">Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const messagesEl = document.getElementById('chat-messages');
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('message-input');
+  const btnSend = document.getElementById('btn-send');
+  const btnNew = document.getElementById('btn-new');
+  const statusEl = document.getElementById('status');
+  const convLabel = document.getElementById('conv-label');
+
+  let conversationId = null;
+  let sending = false;
+
+  // Pick up conversation_id from URL if resuming
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('conversation_id')) {
+    conversationId = parseInt(params.get('conversation_id'), 10);
+    loadConversation(conversationId);
+  }
+
+  function setStatus(text) {
+    statusEl.textContent = text;
+  }
+
+  function updateConvLabel() {
+    convLabel.textContent = conversationId ? '(#' + conversationId + ')' : '';
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addMessage(role, content, turnId) {
+    const div = document.createElement('div');
+    div.className = 'msg msg-' + role;
+
+    const inner = document.createElement('div');
+    inner.className = 'msg-content';
+    inner.textContent = content;
+    div.appendChild(inner);
+
+    if (role === 'assistant' && turnId) {
+      const actions = document.createElement('div');
+      actions.className = 'msg-actions';
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-outline-warning btn-sm';
+      btn.textContent = 'Correct';
+      btn.addEventListener('click', function() { openCorrection(turnId); });
+      actions.appendChild(btn);
+      div.appendChild(actions);
+    }
+
+    messagesEl.appendChild(div);
+    scrollToBottom();
+    return inner;
+  }
+
+  function addToolEvent(type, name, data) {
+    const div = document.createElement('div');
+    div.className = 'msg-tool';
+
+    const card = document.createElement('div');
+    card.className = 'tool-card';
+
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+
+    if (type === 'tool_call') {
+      summary.textContent = 'Tool call: ' + name;
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(data, null, 2);
+      details.appendChild(summary);
+      details.appendChild(pre);
+    } else {
+      summary.textContent = 'Tool result: ' + name;
+      const pre = document.createElement('pre');
+      pre.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      details.appendChild(summary);
+      details.appendChild(pre);
+    }
+
+    card.appendChild(details);
+    div.appendChild(card);
+    messagesEl.appendChild(div);
+    scrollToBottom();
+  }
+
+  async function createConversation() {
+    const resp = await fetch('/api/conversation', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({})
+    });
+    const data = await resp.json();
+    conversationId = data.conversation_id;
+    updateConvLabel();
+    return conversationId;
+  }
+
+  async function loadConversation(convId) {
+    const resp = await fetch('/api/conversation/' + convId);
+    if (!resp.ok) {
+      setStatus('Conversation not found');
+      return;
+    }
+    const data = await resp.json();
+    messagesEl.innerHTML = '';
+    for (const turn of data.turns) {
+      if (turn.role === 'user' || turn.role === 'assistant') {
+        addMessage(turn.role, turn.content, turn.role === 'assistant' ? turn.id : null);
+      }
+    }
+    updateConvLabel();
+  }
+
+  async function sendMessage(text) {
+    if (sending) return;
+    sending = true;
+    btnSend.disabled = true;
+    setStatus('Sending...');
+
+    if (!conversationId) {
+      await createConversation();
+    }
+
+    addMessage('user', text);
+
+    try {
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          message: text
+        })
+      });
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let assistantEl = null;
+      let assistantText = '';
+
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, {stream: true});
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+
+          let event;
+          try { event = JSON.parse(raw); } catch(e) { continue; }
+
+          if (event.type === 'tool_call') {
+            setStatus('Calling tool: ' + event.name);
+            addToolEvent('tool_call', event.name, event.arguments);
+          } else if (event.type === 'tool_result') {
+            setStatus('Tool returned: ' + event.name);
+            addToolEvent('tool_result', event.name, event.result);
+          } else if (event.type === 'response') {
+            assistantText = event.content;
+            // The response event contains the full content
+            assistantEl = addMessage('assistant', assistantText);
+            setStatus('');
+          } else if (event.type === 'error') {
+            setStatus('Error: ' + event.content);
+          } else if (event.type === 'done') {
+            setStatus('');
+          }
+        }
+      }
+    } catch (err) {
+      setStatus('Error: ' + err.message);
+    }
+
+    sending = false;
+    btnSend.disabled = false;
+    input.focus();
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    input.style.height = 'auto';
+    sendMessage(text);
+  });
+
+  // Shift+Enter for newline, Enter to send
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.dispatchEvent(new Event('submit'));
+    }
+  });
+
+  // Auto-resize textarea
+  input.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+  });
+
+  btnNew.addEventListener('click', function() {
+    conversationId = null;
+    messagesEl.innerHTML = '';
+    updateConvLabel();
+    setStatus('');
+    // Remove query param
+    window.history.replaceState({}, '', '/');
+    input.focus();
+  });
+
+  // Correction modal
+  const correctModal = new bootstrap.Modal(document.getElementById('correctModal'));
+
+  function openCorrection(turnId) {
+    document.getElementById('correct-turn-id').value = turnId;
+    document.getElementById('correct-text').value = '';
+    document.getElementById('correct-reason').value = '';
+    correctModal.show();
+  }
+
+  document.getElementById('btn-submit-correction').addEventListener('click', async function() {
+    const turnId = document.getElementById('correct-turn-id').value;
+    const correction = document.getElementById('correct-text').value.trim();
+    const reason = document.getElementById('correct-reason').value.trim();
+
+    if (!correction) return;
+
+    try {
+      const resp = await fetch('/api/turn/' + turnId + '/correct', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({correction: correction, reason: reason})
+      });
+      if (resp.ok) {
+        correctModal.hide();
+        setStatus('Correction saved');
+        setTimeout(function() { setStatus(''); }, 2000);
+      } else {
+        const data = await resp.json();
+        setStatus('Error: ' + (data.error || 'Failed'));
+      }
+    } catch (err) {
+      setStatus('Error: ' + err.message);
+    }
+  });
+
+  input.focus();
+})();
+</script>
+{% endblock %}

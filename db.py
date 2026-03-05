@@ -5,7 +5,7 @@ SQLite-backed conversation persistence, rules, corrections, and prompts.
 
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
 from pathlib import Path
 
@@ -14,7 +14,7 @@ import config
 
 def _now() -> str:
     """Current UTC timestamp as ISO string."""
-    return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def get_connection() -> sqlite3.Connection:

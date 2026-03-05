@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Conversations - DasModel{% endblock %}
+
+{% block content %}
+<h5 class="mb-3">Conversations</h5>
+
+{% if conversations %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <th>User</th>
+        <th>Started</th>
+        <th>Turns</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for conv in conversations %}
+      <tr>
+        <td>{{ conv.id }}</td>
+        <td>
+          <a href="/?conversation_id={{ conv.id }}">
+            {{ conv.title or "Untitled" }}
+          </a>
+        </td>
+        <td>{{ conv.user_id }}</td>
+        <td>{{ conv.started_at }}</td>
+        <td>{{ conv.turn_count }}</td>
+        <td>
+          {% if conv.closed_at %}
+            <span class="badge text-bg-secondary">Closed</span>
+          {% else %}
+            <span class="badge text-bg-success">Open</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if not conv.closed_at %}
+          <button class="btn btn-sm btn-outline-secondary btn-close-conv"
+                  data-conv-id="{{ conv.id }}" title="Close conversation">
+            Close
+          </button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-body-secondary">No conversations yet.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  document.querySelectorAll('.btn-close-conv').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const convId = this.dataset.convId;
+      if (!confirm('Close conversation #' + convId + '?')) return;
+      try {
+        const resp = await fetch('/api/conversation/' + convId + '/close', {method: 'POST'});
+        if (resp.ok) {
+          window.location.reload();
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

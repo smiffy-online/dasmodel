@@ -4,6 +4,8 @@ Web UI and API for chatting with Ollama models (local or cloud),
 with MCP tool access and a training/correction feedback loop.
 """
 
+from datetime import datetime
+
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 import json
 
@@ -282,9 +284,6 @@ def preview_prompt():
 def health():
     return jsonify({"status": "healthy", "model": config.OLLAMA_MODEL})
 
-
-# --- Import for preview_prompt ---
-from datetime import datetime
 
 if __name__ == "__main__":
     app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG)
