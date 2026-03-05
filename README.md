@@ -41,7 +41,7 @@ When a response is wrong, add a correction. Corrections are stored alongside the
 Requires Python 3.11+ (for `tomllib`).
 
 ```bash
-git clone https://github.com/YOUR_USER/dasmodel.git
+git clone https://github.com/smiffy-online/dasmodel.git
 cd dasmodel
 python3 -m venv venv
 source venv/bin/activate
