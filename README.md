@@ -256,37 +256,17 @@ Once I'm confident in a task category, I dispatch it directly — no cloud model
 - **Bootstrap 5** for the web UI
 - **Jinja2** for system prompt templating
 
-
-
 ## Shell tool
 
-DasModel includes a built-in shell tool that gives the model direct command execution on the local machine — the same capability that makes cloud coding agents useful. It is disabled by default and must be explicitly enabled in `config.toml`:
-
-```toml
-[shell]
-enabled = true
-working_directory = "/home/user/projects"
-timeout = 30
-max_output_chars = 50000
-# Optional: restrict to specific directories
-# allowed_directories = ["/home/user/projects", "/tmp"]
-```
+DasModel includes a built-in shell tool that gives the model direct command execution on the local machine — the same capability that makes cloud coding agents useful. It is disabled by default and must be explicitly enabled in `config.toml` (see the `[shell]` section under Configuration).
 
 When enabled, the model can execute arbitrary shell commands and receive stdout, stderr, and exit codes. Safety controls include configurable timeouts, output truncation (to avoid blowing up the context window), and optional directory restrictions that prevent the model from operating outside designated paths.
 
 **Warning: The shell tool gives an LLM the ability to execute arbitrary commands on your machine. Language models are unpredictable — they may run destructive commands, misinterpret instructions, or behave in ways you did not intend. This software is provided "as is", without warranty of any kind. You enable shell execution entirely at your own risk. Use directory restrictions, run in a sandboxed environment, and never grant access to systems you cannot afford to break.**
 
-
 ## MCP server endpoint
 
-DasModel can expose itself as an MCP server at `/mcp/`, letting external agents — Claude Desktop, Sonnet, or any MCP-compatible client — drive the local model programmatically. This is the mechanism that enables a cloud model to supervise, evaluate, and correct the local model.
-
-Enable it in `config.toml`:
-
-```toml
-[mcp_server]
-enabled = true
-```
+DasModel can expose itself as an MCP server at `/mcp/`, letting external agents — Claude Desktop, Sonnet, or any MCP-compatible client — drive the local model programmatically. This is the mechanism that enables a cloud model to supervise, evaluate, and correct the local model. Enable it via the `[mcp_server]` section in `config.toml` (see Configuration).
 
 The endpoint accepts JSON-RPC requests and supports:
 
