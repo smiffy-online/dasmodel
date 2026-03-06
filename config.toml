@@ -32,6 +32,11 @@ max_output_chars = 50000
 # Restrict shell to specific directories (empty = no restriction)
 # allowed_directories = ["/home/user/projects", "/tmp"]
 
+# Expose DasModel itself as an MCP server at /mcp/
+# Allows external agents to chat, correct, and manage rules/prompts.
+[mcp_server]
+enabled = false
+
 # MCP servers for tool access. Add as many as needed.
 # Each server is queried for available tools at conversation start.
 # Remove or comment out all [[mcp]] entries to run without tools.
@@ -42,4 +47,5 @@ url = "http://localhost:5001"
 
 # [[mcp]]
 # name = "filesystem"
-# url = "http://localhost:5002"
+# url = "http://localhost:3100"
+# path = "/rpc"                   # Appended to url for JSON-RPC endpoint

@@ -11,16 +11,23 @@ Cloud AI agents are powerful but expensive. Local models are free to run but lac
 ## Architecture
 
 ```
+                    ┌──────────────────┐
+                    │  External Agents │
+                    │ (Claude Desktop, │
+                    │  Sonnet, etc.)   │
+                    └───────┬──────────┘
+                            │ JSON-RPC
+                            ▼
 ┌─────────────┐     ┌──────────────┐     ┌──────────────────┐
 │   Web UI    │────▶│  Flask API   │────▶│  Ollama          │
 │ (Bootstrap) │◀────│  (agent.py)  │◀────│  local or cloud  │
-└─────────────┘     └──────┬───────┘     └──────────────────┘
-                           │
-                    ┌──────▼───────┐
-                    │ MCP Server(s)│    ┌────────────┐
-                    │   (tools)    │    │   Shell    │
-                    └──────────────┘    │  (built-in)│
-                                       └────────────┘
+└─────────────┘     └──┬───────┬───┘     └──────────────────┘
+                       │       │
+                ┌──────▼──┐  ┌─▼──────────┐
+                │ MCP     │  │   Shell    │
+                │Server(s)│  │  (built-in)│
+                │ (tools) │  └────────────┘
+                └─────────┘
 ```
 
 The agent loop:
@@ -122,6 +129,10 @@ timeout = 30                          # Seconds before command is killed
 max_output_chars = 50000              # Truncate long output
 # allowed_directories = ["/home/user/projects"]  # Optional restriction
 
+# Expose DasModel as an MCP server (see "MCP server endpoint" below)
+[mcp_server]
+enabled = false
+
 # MCP servers — add as many as needed
 [[mcp]]
 name = "misti"
@@ -129,12 +140,24 @@ url = "http://localhost:5001"
 
 # [[mcp]]
 # name = "filesystem"
-# url = "http://localhost:5002"
+# url = "http://localhost:3100"
+# path = "/rpc"                   # Appended to url for the JSON-RPC endpoint
 ```
 
 ### Multiple MCP servers
 
 DasModel queries all configured MCP servers for available tools and routes tool calls to the correct server automatically. Remove all `[[mcp]]` entries to run without tool access — the model still works for conversation, it just can't call tools.
+
+Some MCP servers expose their JSON-RPC endpoint at a path other than `/`. Use the `path` field to specify this:
+
+```toml
+[[mcp]]
+name = "filesystem"
+url = "http://localhost:3100"
+path = "/rpc"
+```
+
+The `path` is appended to `url` when making JSON-RPC requests. Defaults to `/` if omitted.
 
 ### Without Ollama locally
 
@@ -149,7 +172,7 @@ ollama login
 ```toml
 [ollama]
 url = "http://localhost:11434"
-model = "qwen3-coder:480b-cloud"
+model = "qwen3-coder-next:cloud"
 ```
 
 Cloud models are proxied through your local Ollama — DasModel talks to localhost as usual.
@@ -159,7 +182,7 @@ Cloud models are proxied through your local Ollama — DasModel talks to localho
 ```toml
 [ollama]
 url = "https://ollama.com"
-model = "qwen3-coder:480b-cloud"
+model = "qwen3-coder-next:cloud"
 api_key = "your-api-key-here"
 ```
 
@@ -253,6 +276,59 @@ When enabled, the model can execute arbitrary shell commands and receive stdout,
 
 **Warning: The shell tool gives an LLM the ability to execute arbitrary commands on your machine. Language models are unpredictable — they may run destructive commands, misinterpret instructions, or behave in ways you did not intend. This software is provided "as is", without warranty of any kind. You enable shell execution entirely at your own risk. Use directory restrictions, run in a sandboxed environment, and never grant access to systems you cannot afford to break.**
 
+
+## MCP server endpoint
+
+DasModel can expose itself as an MCP server at `/mcp/`, letting external agents — Claude Desktop, Sonnet, or any MCP-compatible client — drive the local model programmatically. This is the mechanism that enables a cloud model to supervise, evaluate, and correct the local model.
+
+Enable it in `config.toml`:
+
+```toml
+[mcp_server]
+enabled = true
+```
+
+The endpoint accepts JSON-RPC requests and supports:
+
+- `initialize` — handshake and capability discovery
+- `tools/list` — returns all 14 available tools
+- `tools/call` — execute a tool by name
+
+### Available tools
+
+| Tool | Description |
+|------|-------------|
+| `chat` | Send a message and get a response (creates conversation if needed) |
+| `conversation_create` | Start a new conversation |
+| `conversation_get` | Get a conversation and its turns |
+| `conversation_list` | List recent conversations |
+| `conversation_close` | Close a conversation |
+| `correction_add` | Submit a correction on a model response |
+| `rules_list` | List all rules |
+| `rule_add` | Add a new rule |
+| `rule_update` | Update an existing rule |
+| `rule_delete` | Delete a rule |
+| `rule_toggle` | Toggle a rule's active status |
+| `prompts_list` | List all prompt templates |
+| `prompt_get` | Get a prompt template by ID |
+| `prompt_update` | Update a prompt template |
+
+### Claude Desktop integration
+
+To connect Claude Desktop (or any MCP client that uses stdio transport), you need a small proxy that bridges stdio to HTTP. An example is included in `examples/claude-desktop-extension/`.
+
+The proxy:
+
+1. Reads JSON-RPC requests from stdin
+2. Forwards them to `http://<host>:5003/mcp/` via HTTP POST
+3. Writes responses to stdout
+
+The target URL is configurable via:
+- CLI argument: `node server/index.js http://my-host:5003/mcp/`
+- Environment variable: `DASMODEL_URL=http://my-host:5003/mcp/`
+- Default: `http://localhost:5003/mcp/`
+
+This allows one extension to target different DasModel instances across your network.
 
 ## Licence
 

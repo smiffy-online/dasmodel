@@ -84,13 +84,15 @@ def get_available_tools() -> List[Dict]:
     all_tools = list(builtin_tools.get_builtin_tools())
 
     for server in config.MCP_SERVERS:
-        server_url = server.get("url", "")
+        server_url = server.get("url", "").rstrip("/")
+        server_path = server.get("path", "/")
         server_name = server.get("name", server_url)
+        rpc_url = server_url + server_path
 
         try:
             with httpx.Client(timeout=10.0) as client:
                 response = client.post(
-                    server_url,
+                    rpc_url,
                     json={
                         "jsonrpc": "2.0",
                         "id": 1,
@@ -107,7 +109,7 @@ def get_available_tools() -> List[Dict]:
 
                 for tool in mcp_tools:
                     tool_name = tool["name"]
-                    _tool_server_map[tool_name] = server_url
+                    _tool_server_map[tool_name] = rpc_url
                     all_tools.append({
                         "type": "function",
                         "function": {

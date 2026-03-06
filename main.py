@@ -278,6 +278,21 @@ def preview_prompt():
         return jsonify({"error": f"Error: {e}"}), 400
 
 
+# --- MCP server endpoint ---
+
+if config.MCP_SERVER_ENABLED:
+    import mcp_server
+
+    @app.route("/mcp/", methods=["POST"])
+    def mcp_endpoint():
+        data = request.json
+        if not data:
+            return jsonify({"jsonrpc": "2.0", "id": None,
+                            "error": {"code": -32700, "message": "Parse error"}}), 400
+        response = mcp_server.handle_jsonrpc(data)
+        return jsonify(response)
+
+
 # --- Health ---
 
 @app.route("/health")

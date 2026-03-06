@@ -1,0 +1,40 @@
+{
+  "manifest_version": "0.3",
+  "name": "dasmodel-mcp",
+  "display_name": "DasModel MCP",
+  "version": "0.1.0",
+  "description": "Connect Claude Desktop to a DasModel instance",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ]
+    }
+  },
+  "tools": [
+    {"name": "chat", "description": "Send a message to the local model and get a response"},
+    {"name": "conversation_create", "description": "Start a new conversation"},
+    {"name": "conversation_get", "description": "Get a conversation and its turns"},
+    {"name": "conversation_list", "description": "List recent conversations"},
+    {"name": "conversation_close", "description": "Close a conversation"},
+    {"name": "correction_add", "description": "Submit a correction on a model response"},
+    {"name": "rules_list", "description": "List all rules"},
+    {"name": "rule_add", "description": "Add a new rule"},
+    {"name": "rule_update", "description": "Update an existing rule"},
+    {"name": "rule_delete", "description": "Delete a rule"},
+    {"name": "rule_toggle", "description": "Toggle a rule's active status"},
+    {"name": "prompts_list", "description": "List all prompt templates"},
+    {"name": "prompt_get", "description": "Get a prompt template by ID"},
+    {"name": "prompt_update", "description": "Update a prompt template"}
+  ],
+  "keywords": ["dasmodel", "ollama", "local-model", "mcp"],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

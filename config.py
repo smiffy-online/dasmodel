@@ -53,3 +53,6 @@ MCP_SERVERS: List[Dict[str, str]] = _cfg.get("mcp", [])
 
 # --- Shell tool ---
 SHELL: Dict = _cfg.get("shell", {"enabled": False})
+
+# --- MCP server (expose DasModel as an MCP server) ---
+MCP_SERVER_ENABLED: bool = _cfg.get("mcp_server", {}).get("enabled", False)
