@@ -1,3 +1,17 @@
-__pycache__
+__pycache__/
+*.pyc
 *.swp
 *~
+*.bak
+
+# Virtual environment
+venv/
+
+# Linter/tool caches
+.ruff_cache/
+
+# Runtime database
+dasmodel.db
+
+# Downloaded vendor assets (see README for setup)
+static/vendor/
