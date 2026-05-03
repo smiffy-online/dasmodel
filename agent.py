@@ -58,6 +58,10 @@ def build_system_prompt(user_id: str, tools: List[Dict] = None) -> str:
         return template.render(
             time=time_context,
             user=get_user_context(user_id),
+            agent={
+                "author_id": config.AUTHOR_ID,
+                "model": config.OLLAMA_MODEL,
+            },
             rules=rules,
             exemplars=exemplars,
             tools=tool_list,
