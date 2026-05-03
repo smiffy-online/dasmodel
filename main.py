@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Flask application for DasModel agent runtime.
 Web UI and API for chatting with Ollama models (local or cloud),
