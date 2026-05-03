@@ -117,6 +117,7 @@ path = "dasmodel.db"              # SQLite file
 [agent]
 max_tool_iterations = 10          # Max tool-call rounds per message
 default_user = "user"             # Default user identity
+# author_id = "dm-dolly-misti"   # Unique identity for this instance
 
 [static]
 bootstrap_css = "/static/vendor/bootstrap/css/bootstrap.min.css"
@@ -172,7 +173,7 @@ ollama login
 ```toml
 [ollama]
 url = "http://localhost:11434"
-model = "qwen3-coder-next:cloud"
+model = "qwen-coder-next:cloud"
 ```
 
 Cloud models are proxied through your local Ollama — DasModel talks to localhost as usual.
@@ -182,7 +183,7 @@ Cloud models are proxied through your local Ollama — DasModel talks to localho
 ```toml
 [ollama]
 url = "https://ollama.com"
-model = "qwen3-coder-next:cloud"
+model = "qwen-coder-next:cloud"
 api_key = "your-api-key-here"
 ```
 
