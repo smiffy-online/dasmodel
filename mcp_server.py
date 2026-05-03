@@ -435,15 +435,18 @@ def handle_jsonrpc(request_body: Dict) -> Dict:
     method = request_body.get("method", "")
 
     if method == "initialize":
+        server_info = {
+            "name": "dasmodel",
+            "version": "0.1.0",
+        }
+        if config.AUTHOR_ID:
+            server_info["author_id"] = config.AUTHOR_ID
         return {
             "jsonrpc": "2.0",
             "id": req_id,
             "result": {
                 "protocolVersion": "2024-11-05",
-                "serverInfo": {
-                    "name": "dasmodel",
-                    "version": "0.1.0",
-                },
+                "serverInfo": server_info,
                 "capabilities": {"tools": {}},
             },
         }
