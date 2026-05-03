@@ -13,5 +13,8 @@ venv/
 # Runtime database
 dasmodel.db
 
+# Runtime config
+config.toml
+
 # Downloaded vendor assets (see README for setup)
 static/vendor/

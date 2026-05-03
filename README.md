@@ -73,12 +73,12 @@ The paths are configurable in `config.toml` under `[static]`.
 
 ### 3. Configure
 
-Edit `config.toml` to set your Ollama URL, model name, and MCP server(s):
+Copy `config.toml.example` to `config.toml`, then edit `config.toml` to set your Ollama URL, model name, and MCP server(s):
 
 ```toml
 [ollama]
 url = "http://localhost:11434"
-model = "qwen3:8b"
+model = "qwen-coder-next:cloud"
 
 [[mcp]]
 name = "my-tools"
