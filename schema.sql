@@ -74,7 +74,9 @@ CREATE TABLE IF NOT EXISTS prompts (
 INSERT OR IGNORE INTO prompts (id, name, template, description) VALUES (
     1,
     'system_prompt',
-    'You are a helpful AI assistant running locally.
+    'You are a helpful AI assistant running locally via DasModel on Ollama.
+{% if agent.author_id %}Instance: {{ agent.author_id }}
+{% endif %}Model: {{ agent.model }}
 
 Current time: {{ time.local }} ({{ time.timezone }})
 Date: {{ time.date }}
