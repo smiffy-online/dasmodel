@@ -39,6 +39,7 @@ DB_PATH: str = _cfg.get("database", {}).get("path", "dasmodel.db")
 # --- Agent ---
 MAX_TOOL_ITERATIONS: int = _cfg.get("agent", {}).get("max_tool_iterations", 10)
 DEFAULT_USER: str = _cfg.get("agent", {}).get("default_user", "user")
+AUTHOR_ID: str = _cfg.get("agent", {}).get("author_id", "")
 
 # --- Static assets ---
 BOOTSTRAP_CSS: str = _cfg.get("static", {}).get(
