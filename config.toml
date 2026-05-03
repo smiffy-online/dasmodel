@@ -16,6 +16,10 @@ path = "dasmodel.db"
 [agent]
 max_tool_iterations = 10
 default_user = "user"
+# Unique identity for this DasModel instance, used in state updates and scratchpads.
+# Set this to distinguish instances when multiple run on the same host.
+# Convention: "dm-<purpose or host>-<descriptor>" e.g. "dm-dolly-misti", "dm-dolly-coder"
+# author_id = ""
 
 # Static asset paths (relative to static/ directory)
 # Download Bootstrap and place in static/vendor/bootstrap/
