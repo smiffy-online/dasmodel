@@ -98,3 +98,22 @@ Good: {{ ex.good_response }}
 {% endfor %}{% endif %}',
     'Main system prompt template'
 );
+
+-- ============================================================
+-- SKILLS: Jinja2 templates for skill-based prompt assembly
+-- Based on https://code.visualstudio.com/docs/copilot/customization/agent-skills
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    argument_hint TEXT,
+    agent_invocable BOOLEAN DEFAULT 0,
+    user_invocable BOOLEAN DEFAULT 0,
+    template TEXT NOT NULL, -- Markdown with Jinja2 placeholders for arguments
+    tool_grants TEXT, -- JSON
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);

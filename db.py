@@ -384,3 +384,101 @@ def delete_prompt(prompt_id: int) -> bool:
     changed = cur.rowcount > 0
     conn.close()
     return changed
+
+# --- Skills ---
+
+def get_skill(skill_id: int) -> Optional[Dict]:
+    """Get skill template by ID. """
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM skills WHERE id = ?", (skill_id,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_all_skills() -> List[Dict]:
+    """All skills templates."""
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM skills ORDER BY id"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_skill(name: str, description: str = None, argument_hint: str = None, user_invocable: bool = False, disable_model_invocation: bool = False, template: str = None, active: bool = True) -> int:
+    """Create a new skill template."""
+    conn = get_connection()
+    cur = conn.execute(
+        "INSERT INTO skills (name, description, argument_hint, user_invocable, disable_model_invocation, template, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (name, description, argument_hint, user_invocable, disable_model_invocation, template, 1 if active else 0)
+    )
+    conn.commit()
+    skill_id = cur.lastrowid
+    conn.close()
+    return skill_id
+
+
+def update_skill(skill_id: int, name: str = None, description: str = None, argument_hint: str = None, user_invocable: bool = False, disable_model_invocation: bool = False, template: str = None, active: bool = None) -> bool:
+    """Update a skill template."""
+    updates, params = [], []
+    if template is not None:
+        updates.append("template = ?")
+        params.append(template)
+    if name is not None:
+        updates.append("name = ?")
+        params.append(name)
+    if description is not None:
+        updates.append("description = ?")
+        params.append(description or None)
+    if active is not None:
+        updates.append("active = ?")
+        params.append(1 if active else 0)
+    if argument_hint is not None:
+        updates.append("argument_hint = ?")
+        params.append(argument_hint or None)
+    if user_invocable is not None:
+        updates.append("user_invocable = ?")
+        params.append(1 if user_invocable else 0)
+    if disable_model_invocation is not None:
+        updates.append("disable_model_invocation = ?")
+        params.append(1 if disable_model_invocation else 0)
+    if not updates:
+        return False
+    updates.append("updated_at = ?")
+    params.append(_now())
+    params.append(skill_id)
+
+    conn = get_connection()
+    cur = conn.execute(
+        f"UPDATE skills SET {', '.join(updates)} WHERE id = ?", params
+    )
+    conn.commit()
+    changed = cur.rowcount > 0
+    conn.close()
+    return changed
+
+def delete_skill(skill_id: int) -> bool:
+    """Delete a skill. Cannot delete id=1 (system skill)."""
+    if skill_id == 1:
+        return False
+    conn = get_connection()
+    cur = conn.execute("DELETE FROM skills WHERE id = ?", (skill_id,))
+    conn.commit()
+    changed = cur.rowcount > 0
+    conn.close()
+    return changed
+
+def toggle_skill_active(skill_id: int) -> Optional[bool]:
+    """Toggle a skill's active status. Returns new status or None."""
+    conn = get_connection()
+    row = conn.execute("SELECT active FROM skills WHERE id = ?", (skill_id,)).fetchone()
+    if not row:
+        conn.close()
+        return None
+    new_status = 0 if row["active"] else 1
+    conn.execute("UPDATE skills SET active = ? WHERE id = ?", (new_status, skill_id))
+    conn.commit()
+    conn.close()
+    return bool(new_status)
