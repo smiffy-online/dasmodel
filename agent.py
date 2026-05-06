@@ -7,6 +7,8 @@ streaming and synchronous modes.
 """
 
 import json
+import time
+import threading
 import httpx
 from datetime import datetime, timezone
 from typing import List, Dict, Generator
@@ -76,6 +78,45 @@ def build_system_prompt(user_id: str, tools: List[Dict] = None) -> str:
 
 # Maps tool_name -> MCP server URL (populated by get_available_tools)
 _tool_server_map: Dict[str, str] = {}
+
+# Tool list cache — refreshed at most every _TOOLS_CACHE_TTL seconds
+_tools_cache: List[Dict] = []
+_tools_cache_time: float = 0.0
+_tools_lock = threading.Lock()
+_TOOLS_CACHE_TTL: float = 300.0
+
+
+def get_cached_tools() -> List[Dict]:
+    """Return the tool list, fetching from MCP only when the cache is stale."""
+    global _tools_cache, _tools_cache_time
+    now = time.time()
+    # Fast path: cache is warm (no lock needed for a read under Python GIL)
+    if _tools_cache and (now - _tools_cache_time) <= _TOOLS_CACHE_TTL:
+        return _tools_cache
+    # Slow path: refresh under lock, double-checked to avoid stampede
+    with _tools_lock:
+        now = time.time()
+        if not _tools_cache or (now - _tools_cache_time) > _TOOLS_CACHE_TTL:
+            _tools_cache = get_available_tools()
+            _tools_cache_time = now
+        return _tools_cache
+
+
+def _response_needs_tools(content: str, tools: List[Dict]) -> bool:
+    """Return True if the model's plain-text response signals it wants a tool.
+
+    The system prompt lists tool names as text so the model can reference
+    them by name even when no schemas are in the payload. We detect that
+    signal here rather than paying for 115 full schemas on every call.
+    """
+    if not content.strip():
+        return True
+    lower = content.lower()
+    for tool in tools:
+        name = tool.get("function", {}).get("name", "")
+        if name and name in lower:
+            return True
+    return False
 
 
 def get_available_tools() -> List[Dict]:
@@ -228,13 +269,33 @@ def run_agent_loop(
     user_id = user_id or config.DEFAULT_USER
     db.add_turn(conversation_id, "user", user_message)
 
-    tools = get_available_tools()
+    tools = get_cached_tools()
 
     messages = [
         {"role": "system", "content": build_system_prompt(user_id, tools)}
     ]
     messages.extend(db.get_context_window(conversation_id))
 
+    # Phase 1: call without tool schemas. The system prompt lists tool
+    # names as text so the model can signal intent without us sending
+    # 115 full schemas on every call.
+    response = call_ollama(messages, tools=None)
+
+    if "error" in response:
+        yield {"type": "error", "content": f"Ollama error: {response['error']}"}
+        return
+
+    initial_content = response.get("message", {}).get("content", "")
+
+    if not _response_needs_tools(initial_content, tools):
+        # Model answered directly — no schemas were needed.
+        db.add_turn(conversation_id, "assistant", initial_content)
+        yield {"type": "response", "content": initial_content}
+        return
+
+    # Phase 2: model signalled tool intent. Resend the original messages
+    # with full schemas so it can make structured tool calls. The planning
+    # text from phase 1 is not added to history.
     iteration = 0
     while iteration < config.MAX_TOOL_ITERATIONS:
         iteration += 1
