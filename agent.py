@@ -241,6 +241,11 @@ def run_agent_loop(
 
         try:
             response = call_ollama(messages, tools)
+
+            if "error" in response:
+                yield {"type": "error", "content": f"Ollama error: {response['error']}"}
+                return
+
             message = response.get("message", {})
             tool_calls = message.get("tool_calls", [])
 

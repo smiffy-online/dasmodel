@@ -9,6 +9,8 @@ from datetime import datetime
 
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 import json
+import queue
+import threading
 
 import config
 import db
@@ -120,8 +122,30 @@ def chat_stream():
         return jsonify({"error": "message required"}), 400
 
     def generate():
-        for event in agent.run_agent_loop(conv_id, message, user_id):
-            yield f"data: {json.dumps(event)}\n\n"
+        # run_agent_loop blocks for 15–120s on Ollama calls; without heartbeats
+        # the browser aborts the idle SSE connection (NS_BINDING_ABORTED).
+        event_queue = queue.Queue()
+
+        def run_agent():
+            try:
+                for event in agent.run_agent_loop(conv_id, message, user_id):
+                    event_queue.put(event)
+            except Exception as e:
+                event_queue.put({"type": "error", "content": str(e)})
+            finally:
+                event_queue.put(None)
+
+        threading.Thread(target=run_agent, daemon=True).start()
+
+        while True:
+            try:
+                event = event_queue.get(timeout=15)
+                if event is None:
+                    break
+                yield f"data: {json.dumps(event)}\n\n"
+            except queue.Empty:
+                yield 'data: {"type": "heartbeat"}\n\n'
+
         yield 'data: {"type": "done"}\n\n'
 
     return Response(
