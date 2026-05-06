@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Prompts - DasModel{% endblock %}
+{% block title %}Skills - DasModel{% endblock %}
 
 {% block head %}
 <style>
@@ -49,6 +49,30 @@
             <input type="text" class="form-control" id="skill-desc" placeholder="Optional">
           </div>
         </div>
+        <div class="row mb-3">
+          <div class="col-6">
+            <label for="skill-arghint" class="form-label">Argument Hint</label>
+            <input type="text" class="form-control" id="skill-arghint" placeholder="e.g. --help">
+          </div>
+          <div class="col-6">
+            <label for="skill-toolgrants" class="form-label">Tool Grants</label>
+            <input type="text" class="form-control" id="skill-toolgrants" placeholder='["tool1", "tool2"]'>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="skill-userinvocable">
+              <label class="form-check-label" for="skill-userinvocable">User Invocable</label>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="skill-agentinvocable">
+              <label class="form-check-label" for="skill-agentinvocable">Agent Invocable</label>
+            </div>
+          </div>
+        </div>
         <div class="mb-3">
           <label for="skill-template" class="form-label">Template (Jinja2)</label>
           <textarea class="form-control prompt-template" id="skill-template" rows="12"></textarea>
@@ -95,19 +119,25 @@
                                : '<span class="badge text-bg-secondary">Inactive</span>';
       const isSystem = p.id === 1;
       const desc = p.description ? '<small class="text-body-secondary ms-2">' + escapeHtml(p.description) + '</small>' : '';
+      const arghint = p.argument_hint ? '<small class="text-body-secondary ms-2">[' + escapeHtml(p.argument_hint) + ']</small>' : '';
+      const userInvocable = p.user_invocable ? '<small class="badge text-bg-info ms-1">User</small>' : '';
+      const agentInvocable = p.agent_invocable ? '<small class="badge text-bg-info ms-1">Agent</small>' : '';
 
       html += '<div class="list-group-item">'
         + '<div class="d-flex justify-content-between align-items-start">'
         + '<div>'
         + '<strong>' + escapeHtml(p.name) + '</strong> '
-        + active + desc
+        + active + desc + arghint + userInvocable + agentInvocable
         + '<div class="mt-1"><small class="text-body-secondary">Updated: ' + (p.updated_at || p.created_at) + '</small></div>'
         + '</div>'
-        + '<div class="d-flex gap-2">'
-        + '<button class="btn btn-sm btn-outline-secondary btn-edit" data-id="' + p.id + '">Edit</button>';
+        + '<div class="d-flex gap-2 flex-wrap">'
+        + '<button class="btn btn-sm btn-outline-secondary btn-edit" data-id="' + p.id + '">Edit</button>'
+        + '<button class="btn btn-sm btn-outline-success btn-toggle-active" data-id="' + p.id + '" data-active="' + p.active + '">'
+        + (p.active ? 'Deactivate' : 'Activate')
+        + '</button>';
 
       if (!isSystem) {
-        html += '<button class="btn btn-sm btn-outline-danger btn-delete" data-id="' + p.id + '">Del</button>';
+        html += '<button class="btn btn-sm btn-outline-danger btn-delete" data-id="' + p.id + '">Delete</button>';
       }
 
       html += '</div></div></div>';
@@ -118,8 +148,11 @@
     listEl.querySelectorAll('.btn-edit').forEach(function(el) {
       el.addEventListener('click', function() { editSkill(parseInt(this.dataset.id)); });
     });
+    listEl.querySelectorAll('.btn-toggle-active').forEach(function(el) {
+      el.addEventListener('click', function() { toggleSkillActive(parseInt(this.dataset.id)); });
+    });
     listEl.querySelectorAll('.btn-delete').forEach(function(el) {
-      el.addEventListener('click', function() { deleteSkill (parseInt(this.dataset.id)); });
+      el.addEventListener('click', function() { deleteSkill(parseInt(this.dataset.id)); });
     });
   }
 
@@ -134,6 +167,10 @@
     document.getElementById('skill-id').value = '';
     document.getElementById('skill-name').value = '';
     document.getElementById('skill-desc').value = '';
+    document.getElementById('skill-arghint').value = '';
+    document.getElementById('skill-toolgrants').value = '';
+    document.getElementById('skill-userinvocable').checked = false;
+    document.getElementById('skill-agentinvocable').checked = false;
     document.getElementById('skill-template').value = '';
     document.getElementById('preview-area').style.display = 'none';
     modal.show();
@@ -146,6 +183,10 @@
     document.getElementById('skill-id').value = id;
     document.getElementById('skill-name').value = p.name;
     document.getElementById('skill-desc').value = p.description || '';
+    document.getElementById('skill-arghint').value = p.argument_hint || '';
+    document.getElementById('skill-toolgrants').value = p.tool_grants || '';
+    document.getElementById('skill-userinvocable').checked = !!p.user_invocable;
+    document.getElementById('skill-agentinvocable').checked = !!p.agent_invocable;
     document.getElementById('skill-template').value = p.template;
     document.getElementById('preview-area').style.display = 'none';
     modal.show();
@@ -156,10 +197,25 @@
     const name = document.getElementById('skill-name').value.trim();
     const template = document.getElementById('skill-template').value.trim();
     const description = document.getElementById('skill-desc').value.trim();
+    const argument_hint = document.getElementById('skill-arghint').value.trim();
+    const tool_grants = document.getElementById('skill-toolgrants').value.trim();
+    const user_invocable = document.getElementById('skill-userinvocable').checked;
+    const agent_invocable = document.getElementById('skill-agentinvocable').checked;
 
-    if (!name || !template) return;
+    if (!name || !template) {
+      alert('Name and Template are required');
+      return;
+    }
 
-    const body = {name: name, template: template, description: description};
+    const body = {
+      name: name,
+      template: template,
+      description: description || null,
+      argument_hint: argument_hint || null,
+      tool_grants: tool_grants || null,
+      user_invocable: user_invocable,
+      agent_invocable: agent_invocable
+    };
 
     if (id) {
       await fetch('/api/skills/' + id, {
@@ -204,6 +260,19 @@
       previewArea.style.display = 'block';
     }
   });
+
+  async function toggleSkillActive(id) {
+    const resp = await fetch('/api/skills/' + id + '/toggle', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    });
+    if (!resp.ok) {
+      const data = await resp.json();
+      alert(data.error || 'Failed to toggle');
+      return;
+    }
+    loadSkills();
+  }
 
   async function deleteSkill(id) {
     if (!confirm('Delete this skill?')) return;

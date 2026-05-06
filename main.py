@@ -27,6 +27,15 @@ def ensure_db():
         app._db_initialised = True
 
 
+@app.before_request
+def detect_user():
+    """Set request.user_id based on request source."""
+    if request.path.startswith("/mcp/"):
+        request.user_id = "claude"
+    else:
+        request.user_id = config.DEFAULT_USER
+
+
 @app.after_request
 def close_connections(response):
     # Gunicorn's 2s keep-alive timeout causes Firefox to attempt POST requests
@@ -84,7 +93,7 @@ def skills_page():
 def create_conversation():
     """Create a new conversation and return its ID"""
     data = request.json or {}
-    user_id = data.get("user_id", config.DEFAULT_USER)
+    user_id = data.get("user_id", request.user_id)
     conv_id = db.create_conversation(user_id)
     return jsonify({"conversation_id": conv_id})
 
@@ -109,7 +118,7 @@ def close_conversation(conv_id: int):
 @app.route("/api/conversations")
 def list_conversations():
     """List recent conversations for a user"""
-    user_id = request.args.get("user_id")
+    user_id = request.args.get("user_id") or request.user_id
     limit = int(request.args.get("limit", 20))
     convs = db.get_recent_conversations(user_id, limit)
     return jsonify({"conversations": convs})
@@ -123,7 +132,7 @@ def chat_stream():
     data = request.json or {}
     conv_id = data.get("conversation_id")
     message = data.get("message", "").strip()
-    user_id = data.get("user_id", config.DEFAULT_USER)
+    user_id = data.get("user_id", request.user_id)
 
     if not conv_id:
         return jsonify({"error": "conversation_id required"}), 400
@@ -170,7 +179,7 @@ def chat_sync():
     data = request.json or {}
     conv_id = data.get("conversation_id")
     message = data.get("message", "").strip()
-    user_id = data.get("user_id", config.DEFAULT_USER)
+    user_id = data.get("user_id", request.user_id)
 
     if not conv_id:
         return jsonify({"error": "conversation_id required"}), 400
@@ -315,7 +324,6 @@ def delete_prompt(prompt_id: int):
 @app.route("/api/prompts/preview", methods=["POST"])
 def preview_prompt():
     """Render a prompt template with example data for preview/testing"""
-    from datetime import timezone as tz
     from jinja2 import Template, TemplateError
 
     data = request.json or {}
@@ -326,8 +334,7 @@ def preview_prompt():
         now = datetime.now()
         rendered = Template(template_str).render(
             time={"local": now.strftime("%H:%M"), "timezone": "UTC",
-                  "date": now.strftime("%A, %d %B %Y"),
-                  "utc": datetime.now(tz.utc).strftime("%H:%M UTC")},
+                  "date": now.strftime("%A, %d %B %Y")},
             user={"name": "Example User"},
             rules=db.get_active_rules()[:3],
             exemplars=[],
@@ -339,6 +346,7 @@ def preview_prompt():
         return jsonify({"error": f"Template error: {e}"}), 400
     except Exception as e:
         return jsonify({"error": f"Error: {e}"}), 400
+
 
 # --- Skills API ---
 
@@ -355,24 +363,51 @@ def get_skill(skill_id: int):
         return jsonify({"error": "Skill not found"}), 404
     return jsonify({"skill": skill})
 
+@app.route("/api/skills/preview", methods=["POST"])
+def preview_skill():
+    """Render a skill template with example data for preview/testing"""
+    from jinja2 import Template, TemplateError
+
+    data = request.json or {}
+    template_str = data.get("template", "")
+    if not template_str:
+        return jsonify({"error": "template required"}), 400
+    try:
+        now = datetime.now()
+        rendered = Template(template_str).render(
+            time={"local": now.strftime("%H:%M"), "timezone": "UTC",
+                  "date": now.strftime("%A, %d %B %Y")},
+            user={"name": "Example User"},
+            rules=db.get_active_rules()[:3],
+            exemplars=[],
+            tools=[{"name": "search_notes", "description": "Search through notes"},
+                   {"name": "create_note", "description": "Create a new note"}],
+        )
+        return jsonify({"rendered": rendered})
+    except TemplateError as e:
+        return jsonify({"error": f"Template error: {e}"}), 400
+    except Exception as e:
+        return jsonify({"error": f"Error: {e}"}), 400
+
+
 @app.route("/api/skills", methods=["POST"])
 def create_skill():
     """Create a new skill"""
     data = request.json or {}
     name = data.get("name", "").strip()
     template = data.get("template", "").strip()
-    description = data.get("description", "").strip()
-    argument_hint = data.get("argument_hint", "").strip()
+    description = data.get("description", "").strip() or None
+    argument_hint = data.get("argument_hint", "").strip() or None
+    agent_invocable = data.get("agent_invocable", False)
+    user_invocable = data.get("user_invocable", False)
+    tool_grants = data.get("tool_grants") or None
+    active = data.get("active", True)
     if not name:
         return jsonify({"error": "name required"}), 400
-    if not description:
-        return jsonify({"error": "description required"}), 400
-    if not argument_hint:
-        return jsonify({"error": "argument_hint required"}), 400
     if not template:
         return jsonify({"error": "template required"}), 400
     try:
-        skill_id = db.create_skill(name, description, argument_hint, template)
+        skill_id = db.create_skill(name, description, argument_hint, agent_invocable, user_invocable, template, tool_grants, active)
         return jsonify({"skill_id": skill_id})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -391,7 +426,13 @@ def update_skill(skill_id: int):
         name = name.strip()
         if not name:
             return jsonify({"error": "name cannot be empty"}), 400
-    success = db.update_skill(skill_id, template, name, data.get("description"), data.get("active"))
+    description = data.get("description")
+    argument_hint = data.get("argument_hint")
+    agent_invocable = data.get("agent_invocable")
+    user_invocable = data.get("user_invocable")
+    tool_grants = data.get("tool_grants")
+    active = data.get("active")
+    success = db.update_skill(skill_id, name, description, argument_hint, agent_invocable, user_invocable, template, tool_grants, active)
     if not success:
         return jsonify({"error": "Skill not found or no changes"}), 404
     return jsonify({"status": "updated"})

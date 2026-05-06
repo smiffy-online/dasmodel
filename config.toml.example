@@ -2,12 +2,12 @@
 
 [ollama]
 url = "http://localhost:11434"
-model = "qwen3:8b"
+model = "qwen3-coder-next:cloud"
 # api_key = ""   # Required for Ollama Cloud direct API (https://ollama.com)
 
 [server]
 host = "0.0.0.0"
-port = 5003
+port = 5004
 debug = false
 
 [database]
@@ -15,7 +15,7 @@ path = "dasmodel.db"
 
 [agent]
 max_tool_iterations = 10
-default_user = "user"
+default_user = "smiffy"
 # Unique identity for this DasModel instance, used in state updates and scratchpads.
 # Set this to distinguish instances when multiple run on the same host.
 # Convention: "dm-<purpose or host>-<descriptor>" e.g. "dm-dolly-misti", "dm-dolly-coder"
@@ -29,17 +29,17 @@ bootstrap_js = "/static/vendor/bootstrap/js/bootstrap.bundle.min.js"
 
 # Built-in shell tool. Disabled by default — enable explicitly.
 [shell]
-enabled = false
-working_directory = "."
+enabled = true
+working_directory = "/home/agent/work"
 timeout = 30
 max_output_chars = 50000
 # Restrict shell to specific directories (empty = no restriction)
-# allowed_directories = ["/home/user/projects", "/tmp"]
+allowed_directories = ["/home/agent", "/tmp"]
 
 # Expose DasModel itself as an MCP server at /mcp/
 # Allows external agents to chat, correct, and manage rules/prompts.
 [mcp_server]
-enabled = false
+enabled = true
 
 # MCP servers for tool access. Add as many as needed.
 # Each server is queried for available tools at conversation start.
@@ -47,9 +47,4 @@ enabled = false
 
 [[mcp]]
 name = "misti"
-url = "http://localhost:5001"
-
-# [[mcp]]
-# name = "filesystem"
-# url = "http://localhost:3100"
-# path = "/rpc"                   # Appended to url for JSON-RPC endpoint
+url = "https://misti-mcp.cougar-grue.ts.net"

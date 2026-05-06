@@ -407,12 +407,12 @@ def get_all_skills() -> List[Dict]:
     return [dict(r) for r in rows]
 
 
-def create_skill(name: str, description: str = None, argument_hint: str = None, user_invocable: bool = False, disable_model_invocation: bool = False, template: str = None, active: bool = True) -> int:
+def create_skill(name: str, description: str = None, argument_hint: str = None, agent_invocable: bool = False, user_invocable: bool = False, template: str = None, tool_grants: str = None, active: bool = True) -> int:
     """Create a new skill template."""
     conn = get_connection()
     cur = conn.execute(
-        "INSERT INTO skills (name, description, argument_hint, user_invocable, disable_model_invocation, template, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (name, description, argument_hint, user_invocable, disable_model_invocation, template, 1 if active else 0)
+        "INSERT INTO skills (name, description, argument_hint, agent_invocable, user_invocable, template, tool_grants, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (name, description, argument_hint, 1 if agent_invocable else 0, 1 if user_invocable else 0, template, tool_grants, 1 if active else 0)
     )
     conn.commit()
     skill_id = cur.lastrowid
@@ -420,7 +420,7 @@ def create_skill(name: str, description: str = None, argument_hint: str = None, 
     return skill_id
 
 
-def update_skill(skill_id: int, name: str = None, description: str = None, argument_hint: str = None, user_invocable: bool = False, disable_model_invocation: bool = False, template: str = None, active: bool = None) -> bool:
+def update_skill(skill_id: int, name: str = None, description: str = None, argument_hint: str = None, agent_invocable: bool = None, user_invocable: bool = None, template: str = None, tool_grants: str = None, active: bool = None) -> bool:
     """Update a skill template."""
     updates, params = [], []
     if template is not None:
@@ -438,12 +438,15 @@ def update_skill(skill_id: int, name: str = None, description: str = None, argum
     if argument_hint is not None:
         updates.append("argument_hint = ?")
         params.append(argument_hint or None)
+    if agent_invocable is not None:
+        updates.append("agent_invocable = ?")
+        params.append(1 if agent_invocable else 0)
     if user_invocable is not None:
         updates.append("user_invocable = ?")
         params.append(1 if user_invocable else 0)
-    if disable_model_invocation is not None:
-        updates.append("disable_model_invocation = ?")
-        params.append(1 if disable_model_invocation else 0)
+    if tool_grants is not None:
+        updates.append("tool_grants = ?")
+        params.append(tool_grants or None)
     if not updates:
         return False
     updates.append("updated_at = ?")
