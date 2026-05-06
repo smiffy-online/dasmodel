@@ -27,6 +27,15 @@ def ensure_db():
         app._db_initialised = True
 
 
+@app.after_request
+def close_connections(response):
+    # Gunicorn's 2s keep-alive timeout causes Firefox to attempt POST requests
+    # on already-closed connections (NS_BINDING_ABORTED). Chrome retries
+    # transparently; Firefox does not. Connection: close prevents reuse.
+    response.headers["Connection"] = "close"
+    return response
+
+
 @app.context_processor
 def inject_globals():
     """Make config values available to all templates."""
